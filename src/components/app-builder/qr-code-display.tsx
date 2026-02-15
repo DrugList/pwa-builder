@@ -21,8 +21,8 @@ interface QRCodeDisplayProps {
 
 export function QRCodeDisplay({ open, onOpenChange, shareCode, appName }: QRCodeDisplayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const shareUrl = typeof window !== 'undefined' 
-    ? `${window.location.origin}/${shareCode}`
+  const shareUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/s/${shareCode}`
     : '';
 
   const drawFinderPattern = useCallback((ctx: CanvasRenderingContext2D, x: number, y: number, moduleSize: number) => {
@@ -55,9 +55,9 @@ export function QRCodeDisplay({ open, onOpenChange, shareCode, appName }: QRCode
 
     // Generate a pseudo-random pattern based on the URL
     const seed = text.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    
+
     ctx.fillStyle = '#000000';
-    
+
     // Draw finder patterns (corners)
     drawFinderPattern(ctx, 0, 0, moduleSize);
     drawFinderPattern(ctx, size - 7 * moduleSize, 0, moduleSize);
@@ -67,12 +67,12 @@ export function QRCodeDisplay({ open, onOpenChange, shareCode, appName }: QRCode
     for (let row = 0; row < moduleCount; row++) {
       for (let col = 0; col < moduleCount; col++) {
         // Skip finder pattern areas
-        if ((row < 8 && col < 8) || 
-            (row < 8 && col > moduleCount - 9) || 
-            (row > moduleCount - 9 && col < 8)) {
+        if ((row < 8 && col < 8) ||
+          (row < 8 && col > moduleCount - 9) ||
+          (row > moduleCount - 9 && col < 8)) {
           continue;
         }
-        
+
         // Pseudo-random based on position and seed
         const hash = (row * moduleCount + col + seed) % 3;
         if (hash === 0) {
