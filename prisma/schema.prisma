@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  apps      App[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model App {
+  id           String       @id @default(cuid())
+  name         String
+  description  String?
+  icon         String       @default("/icons/default-app.svg")
+  iconType     String       @default("default") // default, uploaded, emoji
+  appType      String       @default("data") // data, form, website, embed
+  config       String       @default("{}") // JSON config for app settings
+  isPublished  Boolean      @default(false)
+  shareCode    String       @unique @default(cuid())
+  userId       String?
+  user         User?        @relation(fields: [userId], references: [id])
+  dataSources  DataSource[]
+  forms        Form[]
+  dataItems    DataItem[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+model DataSource {
+  id           String     @id @default(cuid())
+  name         String
+  type         String     // google_sheet, manual, api
+  config       String     @default("{}") // JSON config (sheet URL, API endpoint, etc.)
+  lastSync     DateTime?
+  appId        String
+  app          App        @relation(fields: [appId], references: [id], onDelete: Cascade)
+  dataItems    DataItem[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model Form {
+  id           String      @id @default(cuid())
+  name         String
+  description  String?
+  fields       String      @default("[]") // JSON array of field definitions
+  isPublished  Boolean     @default(false)
+  submitText   String      @default("Submit")
+  successMsg   String      @default("Thank you for your submission!")
+  appId        String
+  app          App         @relation(fields: [appId], references: [id], onDelete: Cascade)
+  entries      FormEntry[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model FormEntry {
+  id        String   @id @default(cuid())
+  data      String   @default("{}") // JSON object of field values
+  formId    String
+  form      Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model DataItem {
+  id           String     @id @default(cuid())
+  data         String     @default("{}") // JSON object of item data
+  isFavorite   Boolean    @default(false)
+  displayOrder Int        @default(0)
+  appId        String
+  app          App        @relation(fields: [appId], references: [id], onDelete: Cascade)
+  dataSourceId String?
+  dataSource   DataSource? @relation(fields: [dataSourceId], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
