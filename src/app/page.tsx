@@ -16,6 +16,7 @@ import { CardView } from '@/components/data/card-view';
 import { FavoritesFilter } from '@/components/data/favorites-filter';
 import { FreshnessIndicator } from '@/components/data/freshness-indicator';
 import { FormBuilder } from '@/components/forms/form-builder';
+import { EmbedApp } from '@/components/embed/embed-app';
 import { useAppStore, App as AppType, DataItem } from '@/lib/stores/app-store';
 import { useOffline } from '@/hooks/use-offline';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -38,7 +39,6 @@ export default function Home() {
     lastRefresh,
     setLastRefresh,
     setDataItems,
-    addDataItem,
     toggleFavorite,
     deleteDataItem,
   } = useAppStore();
@@ -51,7 +51,6 @@ export default function Home() {
   const [sharingApp, setSharingApp] = useState<AppType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch apps on mount
   useEffect(() => {
     fetchApps();
   }, []);
@@ -64,7 +63,6 @@ export default function Home() {
       setLastRefresh(new Date());
     } catch (error) {
       console.error('Failed to fetch apps:', error);
-      // Load demo data if API fails
       loadDemoData();
     } finally {
       setIsLoading(false);
@@ -162,13 +160,12 @@ export default function Home() {
         body: JSON.stringify(data),
       });
       const result = await response.json();
-      
+
       if (result.app) {
         setApps([...apps, result.app]);
         toast.success('App created successfully!');
       }
     } catch (error) {
-      // Demo mode - create locally
       const newApp: AppType = {
         id: `app-${Date.now()}`,
         name: data.name,
@@ -195,7 +192,7 @@ export default function Home() {
     iconType: string;
   }) => {
     if (!editingApp) return;
-    
+
     try {
       const response = await fetch(`/api/apps/${editingApp.id}`, {
         method: 'PUT',
@@ -203,18 +200,17 @@ export default function Home() {
         body: JSON.stringify(data),
       });
       const result = await response.json();
-      
+
       if (result.app) {
         setApps(apps.map(a => a.id === editingApp.id ? result.app : a));
         toast.success('App updated successfully!');
       }
     } catch (error) {
-      // Demo mode - update locally
       const updatedApp = { ...editingApp, ...data, updatedAt: new Date().toISOString() };
       setApps(apps.map(a => a.id === editingApp.id ? updatedApp : a));
       toast.success('App updated successfully!');
     }
-    
+
     setEditingApp(null);
   };
 
@@ -224,7 +220,6 @@ export default function Home() {
       setApps(apps.filter(a => a.id !== id));
       toast.success('App deleted successfully!');
     } catch (error) {
-      // Demo mode
       setApps(apps.filter(a => a.id !== id));
       toast.success('App deleted successfully!');
     }
@@ -272,7 +267,6 @@ export default function Home() {
       deleteDataItem(id);
       toast.success('Item deleted!');
     } catch (error) {
-      // Demo mode
       deleteDataItem(id);
       toast.success('Item deleted!');
     }
@@ -286,7 +280,7 @@ export default function Home() {
     <PullToRefresh onRefresh={handlePullRefresh}>
       <div className="min-h-screen bg-background">
         <OfflineIndicator />
-        
+
         {/* Header */}
         <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
           <div className="container flex h-16 items-center justify-between px-4">
@@ -301,7 +295,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <FreshnessIndicator
                 lastRefresh={lastRefresh}
@@ -382,41 +376,39 @@ export default function Home() {
             {/* Data Tab */}
             <TabsContent value="data">
               {currentApp ? (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-2xl font-bold">{currentApp.name}</h2>
-                      <p className="text-muted-foreground">{currentApp.description}</p>
-                    </div>
-                    <Button variant="outline" onClick={() => setCurrentApp(null)}>
-                      Back to Apps
-                    </Button>
+                currentApp.appType === 'embed' ? (
+                  <div className="h-[calc(100vh-200px)] border rounded-lg overflow-hidden">
+                    <EmbedApp
+                      appId={currentApp.id}
+                      appName={currentApp.name}
+                      isEditing={true}
+                    />
                   </div>
-
-                  <FavoritesFilter
-                    showFavorites={showFavorites}
-                    onToggleFavorites={setShowFavorites}
-                    favoritesCount={favoritesCount}
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                  />
-
-                  {viewMode === 'table' ? (
-                    <DataTable
-                      data={filteredItems}
-                      onToggleFavorite={handleToggleFavorite}
-                      onDelete={handleDeleteItem}
-                      isFavorite={isFavorite}
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-2xl font-bold">{currentApp.name}</h2>
+                        <p className="text-muted-foreground">{currentApp.description || ''}</p>
+                      </div>
+                      <Button variant="outline" onClick={() => setCurrentApp(null)}>
+                        Back to Apps
+                      </Button>
+                    </div>
+                    <FavoritesFilter
+                      showFavorites={showFavorites}
+                      onToggleFavorites={setShowFavorites}
+                      favoritesCount={favoritesCount}
+                      viewMode={viewMode}
+                      onViewModeChange={setViewMode}
                     />
-                  ) : (
-                    <CardView
-                      data={filteredItems}
-                      onToggleFavorite={handleToggleFavorite}
-                      onDelete={handleDeleteItem}
-                      isFavorite={isFavorite}
-                    />
-                  )}
-                </div>
+                    {viewMode === 'table' ? (
+                      <DataTable data={filteredItems} onToggleFavorite={handleToggleFavorite} onDelete={handleDeleteItem} isFavorite={isFavorite} />
+                    ) : (
+                      <CardView data={filteredItems} onToggleFavorite={handleToggleFavorite} onDelete={handleDeleteItem} isFavorite={isFavorite} />
+                    )}
+                  </div>
+                )
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
                   <p className="text-muted-foreground">Select an app to view its data</p>
@@ -434,7 +426,7 @@ export default function Home() {
                     { id: '2', name: 'email', label: 'Email Address', type: 'email', required: true },
                     { id: '3', name: 'message', label: 'Message', type: 'textarea', required: false },
                   ]}
-                  onChange={() => {}}
+                  onChange={() => { }}
                 />
               </div>
             </TabsContent>
