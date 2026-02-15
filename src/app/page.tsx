@@ -169,7 +169,7 @@ export default function Home() {
       const newApp: AppType = {
         id: `app-${Date.now()}`,
         name: data.name,
-        description: data.description || null,
+        description: data.description || undefined,
         icon: data.icon,
         iconType: data.iconType,
         appType: data.appType,

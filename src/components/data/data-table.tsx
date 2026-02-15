@@ -74,9 +74,10 @@ export function DataTable({ data, onToggleFavorite, onDelete, isFavorite }: Data
       },
       cell: ({ row }) => {
         const data = row.original.data as Record<string, unknown>;
+        const name = data.name || data.title || data.Name || data.Title || 'Untitled';
         return (
           <div className="font-medium">
-            {data.name || data.title || data.Name || data.Title || 'Untitled'}
+            {typeof name === 'string' ? name : 'Untitled'}
           </div>
         );
       },
@@ -154,9 +155,9 @@ export function DataTable({ data, onToggleFavorite, onDelete, isFavorite }: Data
                     {header.isPlaceholder
                       ? null
                       : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
                   </TableHead>
                 ))}
               </TableRow>

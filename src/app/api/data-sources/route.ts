@@ -1,20 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { getApps, getDataItems, createDataItem } from '@/lib/google-sheets';
 
-// GET /api/data-sources - Get all data sources
+// GET /api/data-sources - Get all data sources (returns data grouped by app)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const appId = searchParams.get('appId');
 
-    const where = appId ? { appId } : {};
+    if (appId) {
+      const items = await getDataItems(appId);
+      return NextResponse.json({
+        id: appId,
+        appId,
+        type: 'google_sheets',
+        dataItems: items,
+      });
+    }
 
-    const dataSources = await db.dataSource.findMany({
-      where,
-      include: {
-        dataItems: true,
-      },
-    });
+    // Return all apps with their data
+    const apps = await getApps();
+    const dataSources = await Promise.all(
+      apps.map(async (app) => {
+        const items = await getDataItems(app.id);
+        return {
+          id: app.id,
+          appId: app.id,
+          type: 'google_sheets',
+          dataItems: items,
+        };
+      })
+    );
 
     return NextResponse.json(dataSources);
   } catch (error) {
@@ -26,11 +41,11 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/data-sources - Create a new data source
+// POST /api/data-sources - Create a new data item
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { type, config, appId } = body;
+    const { appId, data, isFavorite } = body;
 
     if (!appId) {
       return NextResponse.json(
@@ -39,31 +54,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create data source
-    const dataSource = await db.dataSource.create({
-      data: {
-        type,
-        config: JSON.stringify(config || {}),
-        appId,
-      },
+    // Create a new data item
+    const item = await createDataItem({
+      appId,
+      data: data || {},
+      isFavorite: isFavorite || false,
     });
 
-    // For Google Sheets type, simulate fetching data
-    if (type === 'google_sheets') {
-      const mockData = generateMockSheetData();
-      await Promise.all(
-        mockData.map((item) =>
-          db.dataItem.create({
-            data: {
-              data: JSON.stringify(item),
-              dataSourceId: dataSource.id,
-            },
-          })
-        )
-      );
-    }
-
-    return NextResponse.json(dataSource, { status: 201 });
+    return NextResponse.json(item, { status: 201 });
   } catch (error) {
     console.error('Error creating data source:', error);
     return NextResponse.json(
@@ -71,20 +69,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// Generate mock Google Sheets data for demo
-function generateMockSheetData() {
-  const names = ['John Doe', 'Jane Smith', 'Bob Johnson', 'Alice Williams', 'Charlie Brown'];
-  const emails = ['john@example.com', 'jane@example.com', 'bob@example.com', 'alice@example.com', 'charlie@example.com'];
-  const departments = ['Engineering', 'Marketing', 'Sales', 'HR', 'Finance'];
-
-  return names.map((name, index) => ({
-    Name: name,
-    Email: emails[index],
-    Department: departments[index],
-    Status: index % 2 === 0 ? 'Active' : 'Pending',
-    Score: Math.floor(Math.random() * 100),
-    JoinDate: new Date(2024, index, 15).toISOString().split('T')[0],
-  }));
 }

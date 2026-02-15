@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { getDataItems, createDataItem, updateDataItem, deleteDataItem } from '@/lib/google-sheets';
 
 type Params = Promise<{ id: string }>;
 
-// GET /api/data-sources/[id]/items - Get all items for a data source
+// GET /api/data-sources/[id]/items - Get all items for a data source (app)
 export async function GET(
   request: NextRequest,
   { params }: { params: Params }
@@ -13,23 +13,14 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const favorites = searchParams.get('favorites') === 'true';
 
-    const where: { dataSourceId: string; isFavorite?: boolean } = { dataSourceId: id };
-    if (favorites) {
-      where.isFavorite = true;
-    }
+    const items = await getDataItems(id);
 
-    const items = await db.dataItem.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
+    // Filter favorites if requested
+    const filteredItems = favorites
+      ? items.filter((item) => item.isFavorite)
+      : items;
 
-    // Parse JSON data
-    const parsedItems = items.map((item) => ({
-      ...item,
-      data: JSON.parse(item.data),
-    }));
-
-    return NextResponse.json(parsedItems);
+    return NextResponse.json(filteredItems);
   } catch (error) {
     console.error('Error fetching data items:', error);
     return NextResponse.json(
@@ -49,22 +40,79 @@ export async function POST(
     const body = await request.json();
     const { data, isFavorite } = body;
 
-    const item = await db.dataItem.create({
-      data: {
-        data: JSON.stringify(data),
-        isFavorite: isFavorite || false,
-        dataSourceId: id,
-      },
+    const item = await createDataItem({
+      appId: id,
+      data: data || {},
+      isFavorite: isFavorite || false,
     });
 
-    return NextResponse.json({
-      ...item,
-      data: JSON.parse(item.data),
-    }, { status: 201 });
+    return NextResponse.json(item, { status: 201 });
   } catch (error) {
     console.error('Error creating data item:', error);
     return NextResponse.json(
       { error: 'Failed to create data item' },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/data-sources/[id]/items - Update a data item
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Params }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { itemId, data, isFavorite, displayOrder } = body;
+
+    if (!itemId) {
+      return NextResponse.json(
+        { error: 'Item ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const item = await updateDataItem(itemId, {
+      data,
+      isFavorite,
+      displayOrder,
+    });
+
+    return NextResponse.json(item);
+  } catch (error) {
+    console.error('Error updating data item:', error);
+    return NextResponse.json(
+      { error: 'Failed to update data item' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/data-sources/[id]/items - Delete a data item
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Params }
+) {
+  try {
+    const { id } = await params;
+    const { searchParams } = new URL(request.url);
+    const itemId = searchParams.get('itemId');
+
+    if (!itemId) {
+      return NextResponse.json(
+        { error: 'Item ID is required' },
+        { status: 400 }
+      );
+    }
+
+    await deleteDataItem(itemId);
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting data item:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete data item' },
       { status: 500 }
     );
   }

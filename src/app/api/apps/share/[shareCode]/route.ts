@@ -17,8 +17,25 @@ export async function GET(
         }
 
         // Get related data with error handling
-        let dataItems = [];
-        let forms = [];
+        let dataItems: Array<{
+            id: string;
+            appId: string;
+            data: Record<string, unknown>;
+            isFavorite: boolean;
+            displayOrder: number;
+            createdAt: string;
+            updatedAt: string;
+        }> = [];
+        let forms: Array<{
+            id: string;
+            appId: string;
+            name: string;
+            description: string | null;
+            fields: unknown;
+            submitText: string;
+            successMsg: string;
+            isPublished: boolean;
+        }> = [];
 
         try {
             dataItems = await getDataItems(app.id);
